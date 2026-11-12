@@ -24,6 +24,8 @@ BuildRequires:	kotlin
 BuildRequires:	sysjar
 BuildRequires:	javapackages-filesystem
 BuildRequires:	mvn(org.jetbrains:annotations)
+BuildRequires:	mvn(org.jetbrains.kotlin:kotlin-stdlib)
+BuildRequires:	mvn(org.jetbrains.kotlin:kotlin-compiler-embeddable)
 
 %description
 org.jetbrains.kotlin:kotlin-metadata-jvm %{version}. KotlinClassMetadata
@@ -81,8 +83,12 @@ export JAVA_HOME=%{_jvmdir}/java-21-openjdk
 export PATH="$JAVA_HOME/bin:/usr/bin:/bin"
 CPANN=%{_javadir}/org.jetbrains.annotations.jar
 CPSTD=%{_javadir}/kotlin-stdlib.jar
+CPJDK7=%{_javadir}/kotlin-stdlib-jdk7.jar
+CPJDK8=%{_javadir}/kotlin-stdlib-jdk8.jar
 test -s "$CPANN"
 test -s "$CPSTD"
+test -s "$CPJDK7"
+test -s "$CPJDK8"
 mkdir -p classes
 javac --release 8 -Xlint:-options -encoding UTF-8 -d classes @lite.list
 find core/metadata/src core/metadata.jvm/src -name '*.java' ! -name 'BitEncoding.java' > internal-java.list
@@ -97,7 +103,7 @@ find libraries/kotlinx-metadata/src libraries/kotlinx-metadata/jvm/src -name '*.
 echo libraries/stdlib/src/kotlin/contextParameters/ExperimentalContextParameters.kt >> public-kt.list
 kotlinc -J-Xmx2g -jvm-target 1.8 -language-version 2.0 \
 	-Xallow-kotlin-package -Xexplicit-api=strict \
-	-cp "classes:$CPANN:$CPSTD:/usr/share/java/kotlin-stdlib-jdk7.jar:/usr/share/java/kotlin-stdlib-jdk8.jar" \
+	-cp "classes:$CPANN:$CPSTD:$CPJDK7:$CPJDK8" \
 	-d classes @public-kt.list
 javac --release 8 -Xlint:-options -encoding UTF-8 -cp "classes:$CPANN:$CPSTD" -d classes \
 	libraries/kotlinx-metadata/jvm/src/kotlin/metadata/jvm/KotlinClassHeader.java
@@ -182,8 +188,8 @@ export JAVA_HOME=%{_jvmdir}/java-21-openjdk
 export PATH="$JAVA_HOME/bin:/usr/bin:/bin"
 JAR=%{buildroot}%{_javadir}/kotlin-metadata-jvm.jar
 test -s "$JAR"
-test -s /usr/share/java/kotlin-compiler-embeddable.jar
-STDLIB=/usr/share/java/kotlin-stdlib.jar:/usr/share/java/kotlin-stdlib-jdk7.jar:/usr/share/java/kotlin-stdlib-jdk8.jar
+test -s %{_javadir}/kotlin-compiler-embeddable.jar
+STDLIB=%{_javadir}/kotlin-stdlib.jar:%{_javadir}/kotlin-stdlib-jdk7.jar:%{_javadir}/kotlin-stdlib-jdk8.jar
 mkdir -p check
 cat > check/Sample.kt << 'EOF'
 class Sample
@@ -205,7 +211,7 @@ EOF
 kotlinc -J-Xmx1g -jvm-target 1.8 -language-version 2.0 -d check/sample check/Sample.kt
 kotlinc -J-Xmx1g -jvm-target 1.8 -language-version 2.0 \
 	-cp "$JAR:$STDLIB:check/sample" -d check/out check/Check.kt
-java -cp "/usr/share/java/kotlin-compiler-embeddable.jar:check/out:check/sample:$JAR:$STDLIB" CheckKt > check/out.txt
+java -cp "%{_javadir}/kotlin-compiler-embeddable.jar:check/out:check/sample:$JAR:$STDLIB" CheckKt > check/out.txt
 cat check/out.txt
 grep -F -qx 'kotlin_metadata_jvm_ok Sample' check/out.txt
 

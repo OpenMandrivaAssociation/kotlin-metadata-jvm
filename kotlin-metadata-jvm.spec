@@ -23,6 +23,7 @@ BuildRequires:	java-21-openjdk-devel
 BuildRequires:	kotlin
 BuildRequires:	sysjar
 BuildRequires:	javapackages-filesystem
+BuildRequires:	mvn(org.jetbrains:annotations)
 
 %description
 org.jetbrains.kotlin:kotlin-metadata-jvm %{version}. KotlinClassMetadata
@@ -78,8 +79,10 @@ grep -F -q 'package kotlin.metadata.internal.protobuf;' \
 set -eo pipefail
 export JAVA_HOME=%{_jvmdir}/java-21-openjdk
 export PATH="$JAVA_HOME/bin:/usr/bin:/bin"
-CPANN=/usr/share/java/org.jetbrains.annotations.jar
-CPSTD=/usr/share/java/kotlin-stdlib.jar
+CPANN=%{_javadir}/org.jetbrains.annotations.jar
+CPSTD=%{_javadir}/kotlin-stdlib.jar
+test -s "$CPANN"
+test -s "$CPSTD"
 mkdir -p classes
 javac --release 8 -Xlint:-options -encoding UTF-8 -d classes @lite.list
 find core/metadata/src core/metadata.jvm/src -name '*.java' ! -name 'BitEncoding.java' > internal-java.list

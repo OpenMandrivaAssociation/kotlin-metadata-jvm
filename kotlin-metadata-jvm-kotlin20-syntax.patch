@@ -1,0 +1,305 @@
+diff --git a/core/metadata.jvm/src/org/jetbrains/kotlin/metadata/jvm/deserialization/JvmNameResolverBase.kt b/core/metadata.jvm/src/org/jetbrains/kotlin/metadata/jvm/deserialization/JvmNameResolverBase.kt
+index 61ea87498..1cc49f865 100644
+--- a/core/metadata.jvm/src/org/jetbrains/kotlin/metadata/jvm/deserialization/JvmNameResolverBase.kt
++++ b/core/metadata.jvm/src/org/jetbrains/kotlin/metadata/jvm/deserialization/JvmNameResolverBase.kt
+@@ -26,14 +26,16 @@ open class JvmNameResolverBase(
+         }
+ 
+         if (record.substringIndexCount >= 2) {
+-            val [begin, end] = record.substringIndexList
++            val begin = record.substringIndexList[0]
++            val end = record.substringIndexList[1]
+             if (0 <= begin && begin <= end && end <= string.length) {
+                 string = string.substring(begin, end)
+             }
+         }
+ 
+         if (record.replaceCharCount >= 2) {
+-            val [from, to] = record.replaceCharList
++            val from = record.replaceCharList[0]
++            val to = record.replaceCharList[1]
+             string = string.replace(from.toChar(), to.toChar())
+         }
+ 
+diff --git a/core/metadata.jvm/src/org/jetbrains/kotlin/metadata/jvm/deserialization/ModuleMapping.kt b/core/metadata.jvm/src/org/jetbrains/kotlin/metadata/jvm/deserialization/ModuleMapping.kt
+index fd51dc13e..b3a9a3697 100644
+--- a/core/metadata.jvm/src/org/jetbrains/kotlin/metadata/jvm/deserialization/ModuleMapping.kt
++++ b/core/metadata.jvm/src/org/jetbrains/kotlin/metadata/jvm/deserialization/ModuleMapping.kt
+@@ -88,7 +88,7 @@ class ModuleMapping private constructor(
+                 val packageFqName = proto.packageFqName
+                 val packageParts = result.getOrPut(packageFqName) { PackageParts(packageFqName) }
+ 
+-                for ([index, partShortName] in proto.shortClassNameList.withIndex()) {
++                for ((index, partShortName) in proto.shortClassNameList.withIndex()) {
+                     packageParts.addPart(
+                         internalNameOf(packageFqName, partShortName),
+                         loadMultiFileFacadeInternalName(
+@@ -98,7 +98,7 @@ class ModuleMapping private constructor(
+                 }
+ 
+                 if (isJvmPackageNameSupported) {
+-                    for ([index, partShortName] in proto.classWithJvmPackageNameShortNameList.withIndex()) {
++                    for ((index, partShortName) in proto.classWithJvmPackageNameShortNameList.withIndex()) {
+                         val packageId = proto.classWithJvmPackageNamePackageIdList.getOrNull(index)
+                             ?: proto.classWithJvmPackageNamePackageIdList.lastOrNull()
+                             ?: continue
+@@ -184,7 +184,7 @@ class PackageParts(val packageFqName: String) {
+                 packageFqName = this@PackageParts.packageFqName
+ 
+                 val packageInternalName = packageFqName.replace('.', '/')
+-                val [partsWithinPackage, partsOutsidePackage] = parts.partition { partInternalName ->
++                val (partsWithinPackage, partsOutsidePackage) = parts.partition { partInternalName ->
+                     partInternalName.packageName == packageInternalName
+                 }
+ 
+@@ -207,7 +207,7 @@ class PackageParts(val packageFqName: String) {
+         parts: List<String>,
+         facadeNameToId: MutableMap<String, Int>
+     ) {
+-        for ([facadeInternalName, partInternalNames] in parts.groupBy { getMultifileFacadeName(it) }.toSortedMap(nullsLast())) {
++        for ((facadeInternalName, partInternalNames) in parts.groupBy { getMultifileFacadeName(it) }.toSortedMap(nullsLast())) {
+             for (partInternalName in partInternalNames.sorted()) {
+                 addShortClassName(partInternalName.className)
+                 if (facadeInternalName != null) {
+@@ -224,13 +224,13 @@ class PackageParts(val packageFqName: String) {
+         packageTableBuilder: JvmModuleProtoBuf.Module.Builder
+     ) {
+         val packageIds = mutableListOf<Int>()
+-        for ([packageInternalName, partsInPackage] in parts.groupBy { it.packageName }.toSortedMap()) {
++        for ((packageInternalName, partsInPackage) in parts.groupBy { it.packageName }.toSortedMap()) {
+             val packageFqName = packageInternalName.replace('/', '.')
+             if (packageFqName !in packageTableBuilder.jvmPackageNameList) {
+                 packageTableBuilder.addJvmPackageName(packageFqName)
+             }
+             val packageId = packageTableBuilder.jvmPackageNameList.indexOf(packageFqName)
+-            for ([facadeInternalName, partInternalNames] in partsInPackage.groupBy { getMultifileFacadeName(it) }.toSortedMap(nullsLast())) {
++            for ((facadeInternalName, partInternalNames) in partsInPackage.groupBy { getMultifileFacadeName(it) }.toSortedMap(nullsLast())) {
+                 for (partInternalName in partInternalNames.sorted()) {
+                     addClassWithJvmPackageNameShortName(partInternalName.className)
+                     if (facadeInternalName != null) {
+@@ -256,7 +256,7 @@ class PackageParts(val packageFqName: String) {
+     }
+ 
+     private fun JvmModuleProtoBuf.PackageParts.Builder.writeMultifileFacadeNames(facadeNameToId: Map<String, Int>) {
+-        for ([facadeId, facadeName] in facadeNameToId.values.zip(facadeNameToId.keys).sortedBy(Pair<Int, String>::first)) {
++        for ((facadeId, facadeName) in facadeNameToId.values.zip(facadeNameToId.keys).sortedBy(Pair<Int, String>::first)) {
+             assert(facadeId == multifileFacadeShortNameCount) { "Multifile facades are loaded incorrectly: $facadeNameToId" }
+             addMultifileFacadeShortName(facadeName)
+         }
+@@ -268,7 +268,7 @@ class PackageParts(val packageFqName: String) {
+     fun getMultifileFacadeName(partInternalName: String): String? = packageParts[partInternalName]
+ 
+     operator fun plusAssign(other: PackageParts) {
+-        for ([partInternalName, facadeInternalName] in other.packageParts) {
++        for ((partInternalName, facadeInternalName) in other.packageParts) {
+             addPart(partInternalName, facadeInternalName)
+         }
+         other.metadataParts.forEach(this::addMetadataPart)
+diff --git a/core/metadata/src/org/jetbrains/kotlin/metadata/deserialization/NameResolverImpl.kt b/core/metadata/src/org/jetbrains/kotlin/metadata/deserialization/NameResolverImpl.kt
+index b7ed43852..cef4cd8eb 100644
+--- a/core/metadata/src/org/jetbrains/kotlin/metadata/deserialization/NameResolverImpl.kt
++++ b/core/metadata/src/org/jetbrains/kotlin/metadata/deserialization/NameResolverImpl.kt
+@@ -16,7 +16,7 @@ class NameResolverImpl(
+     override fun getString(index: Int): String = strings.getString(index)
+ 
+     override fun getQualifiedClassName(index: Int): String {
+-        val [packageFqNameSegments, relativeClassNameSegments] = traverseIds(index)
++        val (packageFqNameSegments, relativeClassNameSegments) = traverseIds(index)
+         val className = relativeClassNameSegments.joinToString(".")
+         return if (packageFqNameSegments.isEmpty()) className
+         else packageFqNameSegments.joinToString("/") + "/$className"
+diff --git a/libraries/kotlinx-metadata/jvm/src/kotlin/metadata/jvm/KotlinClassMetadata.kt b/libraries/kotlinx-metadata/jvm/src/kotlin/metadata/jvm/KotlinClassMetadata.kt
+index 99e9b23ee..c21ab0131 100644
+--- a/libraries/kotlinx-metadata/jvm/src/kotlin/metadata/jvm/KotlinClassMetadata.kt
++++ b/libraries/kotlinx-metadata/jvm/src/kotlin/metadata/jvm/KotlinClassMetadata.kt
+@@ -105,7 +105,7 @@ public sealed class KotlinClassMetadata {
+             return wrapWriteIntoIAE {
+                 val writer = ClassWriter(JvmStringTable())
+                 writer.writeClass(kmClass)
+-                val [d1, d2] = writeProtoBufData(writer.t.build(), writer.c)
++                val (d1, d2) = writeProtoBufData(writer.t.build(), writer.c)
+                 Metadata(CLASS_KIND, version.toIntArray(), d1, d2, extraInt = flags)
+             }
+         }
+@@ -150,7 +150,7 @@ public sealed class KotlinClassMetadata {
+             return wrapWriteIntoIAE {
+                 val writer = PackageWriter(JvmStringTable())
+                 writer.writePackage(kmPackage)
+-                val [d1, d2] = writeProtoBufData(writer.t.build(), writer.c)
++                val (d1, d2) = writeProtoBufData(writer.t.build(), writer.c)
+                 Metadata(FILE_FACADE_KIND, version.toIntArray(), d1, d2, extraInt = flags)
+             }
+         }
+@@ -192,7 +192,7 @@ public sealed class KotlinClassMetadata {
+                 val writer = LambdaWriter(JvmStringTable())
+                 writer.writeLambda(kmLambda!!)
+                 val proto = writer.t?.build()
+-                val [d1, d2] =
++                val (d1, d2) =
+                     if (proto != null) writeProtoBufData(proto, writer.c)
+                     else Pair(emptyArray<String>(), emptyArray<String>())
+                 Metadata(SYNTHETIC_CLASS_KIND, version.toIntArray(), d1, d2, extraInt = flags)
+@@ -319,7 +319,7 @@ public sealed class KotlinClassMetadata {
+             return wrapWriteIntoIAE {
+                 val writer = PackageWriter(JvmStringTable())
+                 writer.writePackage(kmPackage)
+-                val [d1, d2] = writeProtoBufData(writer.t.build(), writer.c)
++                val (d1, d2) = writeProtoBufData(writer.t.build(), writer.c)
+                 Metadata(
+                     MULTI_FILE_CLASS_PART_KIND, version.toIntArray(), d1, d2, facadeClassName, extraInt = flags
+                 )
+diff --git a/libraries/kotlinx-metadata/jvm/src/kotlin/metadata/jvm/KotlinModuleMetadata.kt b/libraries/kotlinx-metadata/jvm/src/kotlin/metadata/jvm/KotlinModuleMetadata.kt
+index 4ec40432d..4a2128b8c 100644
+--- a/libraries/kotlinx-metadata/jvm/src/kotlin/metadata/jvm/KotlinModuleMetadata.kt
++++ b/libraries/kotlinx-metadata/jvm/src/kotlin/metadata/jvm/KotlinModuleMetadata.kt
+@@ -47,12 +47,12 @@ public class KotlinModuleMetadata public constructor(
+      */
+     public fun write(): ByteArray {
+         val b = JvmModuleProtoBuf.Module.newBuilder()
+-        kmModule.packageParts.forEach { [fqName, packageParts] ->
++        kmModule.packageParts.forEach { (fqName, packageParts) ->
+             PackageParts(fqName).apply {
+                 for (fileFacade in packageParts.fileFacades) {
+                     addPart(fileFacade, null)
+                 }
+-                for ([multiFileClassPart, multiFileFacade] in packageParts.multiFileClassParts) {
++                for ((multiFileClassPart, multiFileFacade) in packageParts.multiFileClassParts) {
+                     addPart(multiFileClassPart, multiFileFacade)
+                 }
+ 
+diff --git a/libraries/kotlinx-metadata/jvm/src/kotlin/metadata/jvm/internal/JvmReadUtils.kt b/libraries/kotlinx-metadata/jvm/src/kotlin/metadata/jvm/internal/JvmReadUtils.kt
+index 15f3a37bd..ded9d4f76 100644
+--- a/libraries/kotlinx-metadata/jvm/src/kotlin/metadata/jvm/internal/JvmReadUtils.kt
++++ b/libraries/kotlinx-metadata/jvm/src/kotlin/metadata/jvm/internal/JvmReadUtils.kt
+@@ -24,12 +24,12 @@ internal object JvmReadUtils {
+     }
+ 
+     internal fun readKmClass(annotationData: Metadata): KmClass {
+-        val [strings, proto] = JvmProtoBufUtil.readClassDataFrom(annotationData.requireNotEmpty(), annotationData.data2)
++        val (strings, proto) = JvmProtoBufUtil.readClassDataFrom(annotationData.requireNotEmpty(), annotationData.data2)
+         return proto.toKmClass(strings, isLessThan14(annotationData))
+     }
+ 
+     internal fun readKmPackage(annotationData: Metadata): KmPackage {
+-        val [strings, proto] = JvmProtoBufUtil.readPackageDataFrom(annotationData.requireNotEmpty(), annotationData.data2)
++        val (strings, proto) = JvmProtoBufUtil.readPackageDataFrom(annotationData.requireNotEmpty(), annotationData.data2)
+         return proto.toKmPackage(strings, isLessThan14(annotationData))
+     }
+ 
+@@ -38,7 +38,7 @@ internal object JvmReadUtils {
+             annotationData.data1.takeIf(Array<*>::isNotEmpty)?.let { data1 ->
+                 JvmProtoBufUtil.readFunctionDataFrom(data1, annotationData.data2)
+             } ?: return null
+-        val [strings, proto] = functionData
++        val (strings, proto) = functionData
+         return proto.toKmLambda(strings, isLessThan14(annotationData))
+     }
+ 
+@@ -60,8 +60,8 @@ internal object JvmReadUtils {
+     @UnstableMetadataApi
+     internal fun readModuleMetadataImpl(data: ModuleMapping): KmModule {
+         val v = KmModule()
+-        for ([fqName, parts] in data.packageFqName2Parts) {
+-            val [fileFacades, multiFileClassParts] = parts.parts.partition { parts.getMultifileFacadeName(it) == null }
++        for ((fqName, parts) in data.packageFqName2Parts) {
++            val (fileFacades, multiFileClassParts) = parts.parts.partition { parts.getMultifileFacadeName(it) == null }
+             v.packageParts[fqName] = KmPackageParts(
+                 fileFacades.toMutableList(),
+                 multiFileClassParts.associateWith { parts.getMultifileFacadeName(it)!! }.toMutableMap()
+diff --git a/libraries/kotlinx-metadata/src/kotlin/metadata/Annotations.kt b/libraries/kotlinx-metadata/src/kotlin/metadata/Annotations.kt
+index 5ec963374..00616a6a5 100644
+--- a/libraries/kotlinx-metadata/src/kotlin/metadata/Annotations.kt
++++ b/libraries/kotlinx-metadata/src/kotlin/metadata/Annotations.kt
+@@ -36,7 +36,7 @@ public class KmAnnotation(public val className: ClassName, public val arguments:
+      * Returns string representation of this instance with `@` sign, [className], and [arguments] in parentheses.
+      */
+     override fun toString(): String {
+-        val args = arguments.toList().joinToString { [k, v] -> "$k = $v" }
++        val args = arguments.toList().joinToString { (k, v) -> "$k = $v" }
+         return "@$className($args)"
+     }
+ }
+diff --git a/libraries/kotlinx-metadata/src/kotlin/metadata/internal/WriteUtils.kt b/libraries/kotlinx-metadata/src/kotlin/metadata/internal/WriteUtils.kt
+index 8736948c6..2ca7b2fcc 100644
+--- a/libraries/kotlinx-metadata/src/kotlin/metadata/internal/WriteUtils.kt
++++ b/libraries/kotlinx-metadata/src/kotlin/metadata/internal/WriteUtils.kt
+@@ -13,7 +13,7 @@ import org.jetbrains.kotlin.metadata.serialization.StringTable
+ public fun KmAnnotation.writeAnnotation(strings: StringTable): ProtoBuf.Annotation.Builder =
+     ProtoBuf.Annotation.newBuilder().apply {
+         id = strings.getClassNameIndex(className)
+-        for ([name, argument] in arguments) {
++        for ((name, argument) in arguments) {
+             addArgument(ProtoBuf.Annotation.Argument.newBuilder().apply {
+                 nameId = strings.getStringIndex(name)
+                 value = argument.writeAnnotationArgument(strings).build()
+diff --git a/libraries/kotlinx-metadata/src/kotlin/metadata/internal/Writers.kt b/libraries/kotlinx-metadata/src/kotlin/metadata/internal/Writers.kt
+index 1ae5b69c7..17b449ce4 100644
+--- a/libraries/kotlinx-metadata/src/kotlin/metadata/internal/Writers.kt
++++ b/libraries/kotlinx-metadata/src/kotlin/metadata/internal/Writers.kt
+@@ -60,7 +60,7 @@ private fun WriteContext.writeTypeProjection(argument: KmTypeProjection): ProtoB
+     if (argument == KmTypeProjection.STAR) {
+         t.projection = ProtoBuf.Type.Argument.Projection.STAR
+     } else {
+-        (val variance, val argType = type) = argument
++        val (variance, argType) = argument
+         if (variance == null || argType == null)
+             throw InconsistentKotlinMetadataException("Variance and type must be set for non-star type projection")
+         if (variance == KmVariance.IN) {
+@@ -113,7 +113,7 @@ private fun WriteContext.writeConstructor(kmConstructor: KmConstructor): ProtoBu
+     }
+     t.addAllVersionRequirement(kmConstructor.versionRequirements.mapNotNull(::writeVersionRequirement))
+     t.addAllCompilerPluginData(
+-        kmConstructor.compilerPluginMetadata.map { [pluginId, data] ->
++        kmConstructor.compilerPluginMetadata.map { (pluginId, data) ->
+             writeCompilerPluginData(pluginId, data, this).build()
+         }
+     )
+@@ -140,7 +140,7 @@ private fun WriteContext.writeFunction(kmFunction: KmFunction): ProtoBuf.Functio
+     t.returnType = writeType(kmFunction.returnType).build()
+     t.addAllVersionRequirement(kmFunction.versionRequirements.mapNotNull(::writeVersionRequirement))
+     t.addAllCompilerPluginData(
+-        kmFunction.compilerPluginMetadata.map { [pluginId, data] ->
++        kmFunction.compilerPluginMetadata.map { (pluginId, data) ->
+             writeCompilerPluginData(pluginId, data, this).build()
+         }
+     )
+@@ -175,7 +175,7 @@ public fun WriteContext.writeProperty(kmProperty: KmProperty): ProtoBuf.Property
+     t.returnType = writeType(kmProperty.returnType).build()
+     t.addAllVersionRequirement(kmProperty.versionRequirements.mapNotNull { writeVersionRequirement(it) })
+     t.addAllCompilerPluginData(
+-        kmProperty.compilerPluginMetadata.map { [pluginId, data] ->
++        kmProperty.compilerPluginMetadata.map { (pluginId, data) ->
+             writeCompilerPluginData(pluginId, data, this).build()
+         }
+     )
+@@ -229,7 +229,7 @@ private fun WriteContext.writeTypeAlias(
+     t.addAllAnnotation(typeAlias.annotations.map { it.writeAnnotation(strings).build() })
+     t.addAllVersionRequirement(typeAlias.versionRequirements.mapNotNull(::writeVersionRequirement))
+     t.addAllCompilerPluginData(
+-        typeAlias.compilerPluginMetadata.map { [pluginId, data] ->
++        typeAlias.compilerPluginMetadata.map { (pluginId, data) ->
+             writeCompilerPluginData(pluginId, data, this).build()
+         }
+     )
+@@ -394,7 +394,7 @@ public open class ClassWriter(stringTable: StringTable, contextExtensions: List<
+ 
+         t.addAllVersionRequirement(kmClass.versionRequirements.mapNotNull { c.writeVersionRequirement(it) })
+         t.addAllCompilerPluginData(
+-            kmClass.compilerPluginMetadata.map { [pluginId, data] ->
++            kmClass.compilerPluginMetadata.map { (pluginId, data) ->
+                 writeCompilerPluginData(pluginId, data, c).build()
+             }
+         )
+diff --git a/libraries/kotlinx-metadata/src/kotlin/metadata/internal/common/KotlinCommonMetadata.kt b/libraries/kotlinx-metadata/src/kotlin/metadata/internal/common/KotlinCommonMetadata.kt
+index 75783a126..ab746dcfb 100644
+--- a/libraries/kotlinx-metadata/src/kotlin/metadata/internal/common/KotlinCommonMetadata.kt
++++ b/libraries/kotlinx-metadata/src/kotlin/metadata/internal/common/KotlinCommonMetadata.kt
+@@ -48,7 +48,7 @@ public class KotlinCommonMetadata private constructor(proto: ProtoBuf.PackageFra
+ 
+         @JvmStatic
+         public fun read(inputStream: InputStream): KotlinCommonMetadata? {
+-            val [proto, _] = inputStream.readBuiltinsPackageFragment()
++            val (proto, _) = inputStream.readBuiltinsPackageFragment()
+             if (proto == null) return null
+ 
+             return KotlinCommonMetadata(proto)
